@@ -32,6 +32,7 @@ load_config() {
             root) CONFIG_ROOT="$value" ;;
             command) CONFIG_CLAUDE_CMD="$value" ;;
             default_model) CONFIG_DEFAULT_MODEL="$value" ;;
+            claude_dir) CONFIG_CLAUDE_DIR="$value" ;;
             default_group) CONFIG_DEFAULT_GROUP="$value" ;;
             results_dir) CONFIG_RESULTS_DIR="$value" ;;
             logs_dir) CONFIG_LOGS_DIR="$value" ;;
@@ -42,12 +43,16 @@ load_config() {
     CONFIG_RESULTS_DIR="${CONFIG_RESULTS_DIR//\{root\}/$root}"
     CONFIG_LOGS_DIR="${CONFIG_LOGS_DIR//\{root\}/$root}"
     CONFIG_ROOT="$root"
+    
+    # Claude 配置目录默认 ~/.claude
+    CONFIG_CLAUDE_DIR="${CONFIG_CLAUDE_DIR:-$HOME/.claude}"
 }
 
 # 默认配置
 CONFIG_ROOT=""
 CONFIG_CLAUDE_CMD="claude"
 CONFIG_DEFAULT_MODEL=""
+CONFIG_CLAUDE_DIR="$HOME/.claude"
 CONFIG_DEFAULT_GROUP=""
 CONFIG_RESULTS_DIR=""
 CONFIG_LOGS_DIR=""

@@ -1,45 +1,113 @@
 #!/bin/bash
 # 安装 Claude Code Hook
 # 用法:
-#   ./install.sh              # 当前目录作为项目目录
-#   ./install.sh skill       # 作为 Skill 安装到 workspace/skills/
+#   ./install.sh                          # 本地模式，当前目录
+#   ./install.sh -w /path/to/workspace    # Skill 模式，指定 workspace
+#   ./install.sh -w /path -c /path/to/.claude  # 同时指定 workspace 和 claude 配置目录
 
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-MODE="${1:-local}"
+
+# 默认值
+MODE="local"
+WORKSPACE_DIR=""
+CLAUDE_DIR=""
+
+# 解析参数
+while [[ $# -gt 0 ]]; do
+    case "$1" in
+        -w|--workspace)
+            WORKSPACE_DIR="$2"
+            MODE="skill"
+            shift 2
+            ;;
+        -c|--claude-dir)
+            CLAUDE_DIR="$2"
+            shift 2
+            ;;
+        -h|--help)
+            echo "用法: $0 [-w workspace_dir] [-c claude_dir]"
+            echo ""
+            echo "选项:"
+            echo "  -w, --workspace DIR   Skill 安装目录"
+            echo "  -c, --claude-dir DIR  Claude 配置目录 (默认 ~/.claude)"
+            exit 0
+            ;;
+        *)
+            echo "未知选项: $1" >&2
+            exit 1
+            ;;
+    esac
+done
+
+# 转换为绝对路径
+resolve_path() {
+    local path="$1"
+    if [ -z "$path" ]; then
+        echo ""
+        return
+    fi
+    
+    # 如果已经是绝对路径
+    if [[ "$path" = /* ]]; then
+        echo "$(cd "$path" 2>/dev/null && pwd)"
+        return
+    fi
+    
+    # 相对路径转换为绝对路径
+    echo "$(cd "$(pwd)/$path" 2>/dev/null && pwd)"
+}
+
+# 确定 Claude 配置目录
+if [ -z "$CLAUDE_DIR" ]; then
+    CLAUDE_DIR="$HOME/.claude"
+else
+    CLAUDE_DIR=$(resolve_path "$CLAUDE_DIR")
+fi
 
 # 确定根目录
 if [ "$MODE" = "skill" ]; then
-    # Skill 模式：安装到 workspace/skills/
-    WORKSPACE_ROOT="$HOME/.openclaw/workspace-coder"
-    SKILLS_DIR="$WORKSPACE_ROOT/skills/claude-hooks"
+    if [ -z "$WORKSPACE_DIR" ]; then
+        echo "错误: skill 模式需要指定 -w/--workspace 参数" >&2
+        exit 1
+    fi
+    
+    WORKSPACE_DIR=$(resolve_path "$WORKSPACE_DIR")
+    SKILLS_DIR="$WORKSPACE_DIR/skills/claude-hooks"
     
     echo "=== Skill 模式安装 ==="
+    echo "Workspace: $WORKSPACE_DIR"
     echo "目标目录: $SKILLS_DIR"
+    echo "Claude 配置: $CLAUDE_DIR"
+    echo ""
     
     # 创建目录
     mkdir -p "$SKILLS_DIR"
     
-    # 拷贝文件（排除 .git）
-    rsync -a --exclude='.git' --exclude='output' --exclude='logs' "$SCRIPT_DIR/" "$SKILLS_DIR/"
+    # 拷贝文件（排除 .git, output, logs）
+    rsync -a --exclude='.git' --exclude='output' --exclude='logs' --exclude='config.yaml' "$SCRIPT_DIR/" "$SKILLS_DIR/"
     
     ROOT_DIR="$SKILLS_DIR"
     echo "📁 已复制项目到: $ROOT_DIR"
 else
-    # 本地模式：当前目录即为项目目录
     ROOT_DIR="$SCRIPT_DIR"
     echo "=== 本地模式安装 ==="
+    echo "项目目录: $ROOT_DIR"
+    echo "Claude 配置: $CLAUDE_DIR"
 fi
 
-echo "📁 项目根目录: $ROOT_DIR"
 echo ""
+
+# 转换为绝对路径
+ROOT_DIR=$(resolve_path "$ROOT_DIR")
+echo "📁 项目根目录: $ROOT_DIR"
 
 # 创建配置
 CONFIG_FILE="$ROOT_DIR/config.yaml"
-if [ ! -f "$CONFIG_FILE" ]; then
-    echo "📝 生成配置文件..."
-    cat > "$CONFIG_FILE" <<EOF
+echo "📝 生成配置文件..."
+
+cat > "$CONFIG_FILE" <<EOF
 # Claude Code Hooks 配置（自动生成）
 root: "$ROOT_DIR"
 
@@ -48,6 +116,9 @@ command: "claude"
 
 # 默认模型
 default_model: ""
+
+# Claude 配置目录
+claude_dir: "$CLAUDE_DIR"
 
 # Telegram 通知
 notify:
@@ -63,10 +134,8 @@ results:
 logs:
   dir: "{root}/logs"
 EOF
-    echo "   已创建: $CONFIG_FILE"
-else
-    echo "   配置文件已存在"
-fi
+
+echo "   已创建: $CONFIG_FILE"
 
 # 创建必要的目录
 mkdir -p "$ROOT_DIR/output"
@@ -74,7 +143,7 @@ mkdir -p "$ROOT_DIR/logs"
 echo "📂 目录创建完成"
 
 # Claude Code 设置文件
-CLAUDE_SETTINGS="$HOME/.claude/settings.json"
+CLAUDE_SETTINGS="$CLAUDE_DIR/settings.json"
 CLAUDE_HOOK_SCRIPT="$ROOT_DIR/hooks/stop.sh"
 
 echo ""
@@ -128,7 +197,6 @@ EOF
 
 # 读取现有配置并合并
 if [ -f "$CLAUDE_SETTINGS" ]; then
-    local temp_file
     temp_file=$(mktemp)
     jq -s '.[0] * .[1]' "$CLAUDE_SETTINGS" <(echo "$HOOK_JSON") > "$temp_file"
     mv "$temp_file" "$CLAUDE_SETTINGS"
@@ -139,10 +207,6 @@ fi
 echo "✅ 安装完成!"
 echo ""
 echo "使用方式："
-if [ "$MODE" = "skill" ]; then
-    echo "  $SKILLS_DIR/scripts/dispatch.sh -p '任务描述'"
-else
-    echo "  $ROOT_DIR/scripts/dispatch.sh -p '任务描述'"
-fi
+echo "  $ROOT_DIR/scripts/dispatch.sh -p '任务描述'"
 echo ""
 echo "查看配置: $CLAUDE_SETTINGS"

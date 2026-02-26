@@ -11,27 +11,37 @@
 
 ## 快速开始
 
-### 1. 克隆项目
+### 方式一：本地使用
 
 ```bash
-git clone https://github.com/ethanclaw/claude-code-hooks.git ~/.claude-code-hooks
-cd ~/.claude-code-hooks
-```
+# 克隆项目
+git clone https://github.com/ethanclaw/claude-code-hooks.git ~/claude-code-hooks
+cd ~/claude-code-hooks
 
-### 2. 安装 Hook ⚠️
-
-```bash
+# 安装 Hook（当前目录作为项目目录）
 ./scripts/install.sh
 ```
 
-**这会修改 `~/.claude/settings.json`，添加 Claude Code Stop Hook。**
+### 方式二：作为 Skill 安装
 
-安装过程：
-- 自动检测项目路径
-- 生成 config.yaml
-- 合并 hooks 到 Claude Code 配置
+```bash
+# 克隆项目
+git clone https://github.com/ethanclaw/claude-code-hooks.git ~/.openclaw/workspace-coder/skills/claude-hooks
 
-### 3. 派发任务
+# 安装（指定 workspace 目录）
+~/.openclaw/workspace-coder/skills/claude-hooks/scripts/install.sh \
+  -w ~/.openclaw/workspace-coder \
+  -c ~/.claude
+```
+
+### 参数说明
+
+| 参数 | 说明 |
+|------|------|
+| `-w, --workspace` | Skill 模式：指定 workspace 目录 |
+| `-c, --claude-dir` | Claude 配置目录（默认 ~/.claude）|
+
+所有路径会自动转换为绝对路径。
 
 ```bash
 # 基础用法
