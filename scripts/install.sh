@@ -82,11 +82,22 @@ if [ "$MODE" = "skill" ]; then
     echo "Claude 配置: $CLAUDE_DIR"
     echo ""
     
-    # 创建目录
+    # 删除旧目录重新安装
+    rm -rf "$SKILLS_DIR"
+    
+    # 创建目录并拷贝文件
     mkdir -p "$SKILLS_DIR"
     
-    # 拷贝文件（排除 .git, output, logs）
-    rsync -a --exclude='.git' --exclude='output' --exclude='logs' --exclude='config.yaml' "$SCRIPT_DIR/" "$SKILLS_DIR/"
+    # 复制所有内容（手动列出，避免通配符问题）
+    for item in "$SCRIPT_DIR"/*; do
+        [ -e "$item" ] || continue
+        item_name=$(basename "$item")
+        # 排除 output, logs, config.yaml
+        [ "$item_name" = "output" ] && continue
+        [ "$item_name" = "logs" ] && continue
+        [ "$item_name" = "config.yaml" ] && continue
+        cp -r "$item" "$SKILLS_DIR/"
+    done
     
     ROOT_DIR="$SKILLS_DIR"
     echo "📁 已复制项目到: $ROOT_DIR"
@@ -155,6 +166,7 @@ echo ""
 # 检查 hook 脚本是否存在
 if [ ! -f "$CLAUDE_HOOK_SCRIPT" ]; then
     echo "ERROR: Hook 脚本不存在: $CLAUDE_HOOK_SCRIPT" >&2
+    echo "请检查文件是否正确复制" >&2
     exit 1
 fi
 
