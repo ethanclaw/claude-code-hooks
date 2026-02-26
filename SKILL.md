@@ -1,3 +1,9 @@
+---
+name: claude-hooks
+description: 后台调用 Claude Code 执行任务，任务完成后自动通知。支持派发任务、结果查看、Hook 管理。
+metadata: {"openclaw":{"emoji":"🪝"}}
+---
+
 # Claude Code Hooks
 
 后台调用 Claude Code 执行任务，任务完成后自动通知。

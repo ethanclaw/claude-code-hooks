@@ -2,7 +2,8 @@
 # 公共函数库
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-ROOT_DIR="$(dirname "$SCRIPT_DIR")"
+# scripts/lib -> scripts -> 根目录，需要上两级
+ROOT_DIR="$(dirname "$(dirname "$SCRIPT_DIR")")"
 
 # 加载模块
 source "$SCRIPT_DIR/config.sh"
@@ -38,9 +39,7 @@ log() {
 dispatch_task() {
     local prompt="$1"
     local workdir="${2:-.}"
-    local task}"
-    local group_name="${3:-="${4:-}"
-    local model="${5:-}"
+    local model="${3:-}"
     
     local task_id
     task_id=$(generate_task_id)

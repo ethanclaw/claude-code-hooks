@@ -139,8 +139,8 @@ main() {
     {
         echo "Task: $PROMPT"
         echo "---"
-        # 执行 Claude Code
-        timeout "$TIMEOUT" claude "${claude_args[@]}" -p "$PROMPT" 2>&1 || true
+        # 执行 Claude Code（Mac 没有 timeout，用 perl 实现超时）
+        perl -e 'alarm shift; exec @ARGV' "$TIMEOUT" claude "${claude_args[@]}" -p "$PROMPT" 2>&1 || true
     } | tee "$output_file" &
     
     local pid=$!
