@@ -1,17 +1,39 @@
 #!/bin/bash
 # 安装 Claude Code Hook
+# 用法:
+#   ./install.sh              # 当前目录作为项目目录
+#   ./install.sh skill       # 作为 Skill 安装到 workspace/skills/
 
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-ROOT_DIR="$(dirname "$SCRIPT_DIR")"
+MODE="${1:-local}"
 
-echo "=== Claude Code Hook 安装 ==="
-echo ""
+# 确定根目录
+if [ "$MODE" = "skill" ]; then
+    # Skill 模式：安装到 workspace/skills/
+    WORKSPACE_ROOT="$HOME/.openclaw/workspace-coder"
+    SKILLS_DIR="$WORKSPACE_ROOT/skills/claude-hooks"
+    
+    echo "=== Skill 模式安装 ==="
+    echo "目标目录: $SKILLS_DIR"
+    
+    # 创建目录
+    mkdir -p "$SKILLS_DIR"
+    
+    # 拷贝文件（排除 .git）
+    rsync -a --exclude='.git' --exclude='output' --exclude='logs' "$SCRIPT_DIR/" "$SKILLS_DIR/"
+    
+    ROOT_DIR="$SKILLS_DIR"
+    echo "📁 已复制项目到: $ROOT_DIR"
+else
+    # 本地模式：当前目录即为项目目录
+    ROOT_DIR="$SCRIPT_DIR"
+    echo "=== 本地模式安装 ==="
+fi
 
-# 检测当前目录作为根目录
-ROOT_DIR="$(cd "$ROOT_DIR" && pwd)"
 echo "📁 项目根目录: $ROOT_DIR"
+echo ""
 
 # 创建配置
 CONFIG_FILE="$ROOT_DIR/config.yaml"
@@ -49,7 +71,7 @@ fi
 # 创建必要的目录
 mkdir -p "$ROOT_DIR/output"
 mkdir -p "$ROOT_DIR/logs"
-echo "📂 确保目录存在... 完成"
+echo "📂 目录创建完成"
 
 # Claude Code 设置文件
 CLAUDE_SETTINGS="$HOME/.claude/settings.json"
@@ -60,9 +82,6 @@ echo "⚠️  即将修改 Claude Code 配置..."
 echo "   设置文件: $CLAUDE_SETTINGS"
 echo "   Hook 脚本: $CLAUDE_HOOK_SCRIPT"
 echo ""
-
-# 创建 hooks 目录和脚本
-mkdir -p "$ROOT_DIR/hooks"
 
 # 检查 hook 脚本是否存在
 if [ ! -f "$CLAUDE_HOOK_SCRIPT" ]; then
@@ -76,81 +95,54 @@ if [ -f "$CLAUDE_SETTINGS" ]; then
     echo "📋 已备份现有配置"
 fi
 
-# 读取现有配置
+# 构建 hook 配置
+HOOK_JSON=$(cat <<EOF
+{
+  "hooks": {
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "$CLAUDE_HOOK_SCRIPT",
+            "timeout": 30
+          }
+        ]
+      }
+    ],
+    "SessionEnd": [
+      {
+        "hooks": [
+          {
+            "type": "command", 
+            "command": "$CLAUDE_HOOK_SCRIPT",
+            "timeout": 30
+          }
+        ]
+      }
+    ]
+  }
+}
+EOF
+)
+
+# 读取现有配置并合并
 if [ -f "$CLAUDE_SETTINGS" ]; then
-    # 使用 jq 合并（保留现有配置，添加 hooks）
     local temp_file
     temp_file=$(mktemp)
-    
-    # 读取并合并
-    jq -s '.[0] * .[1]' "$CLAUDE_SETTINGS" \
-        <(cat <<EOF
-{
-  "hooks": {
-    "Stop": [
-      {
-        "hooks": [
-          {
-            "type": "command",
-            "command": "$CLAUDE_HOOK_SCRIPT",
-            "timeout": 30
-          }
-        ]
-      }
-    ],
-    "SessionEnd": [
-      {
-        "hooks": [
-          {
-            "type": "command", 
-            "command": "$CLAUDE_HOOK_SCRIPT",
-            "timeout": 30
-          }
-        ]
-      }
-    ]
-  }
-}
-EOF
-) > "$temp_file"
-    
+    jq -s '.[0] * .[1]' "$CLAUDE_SETTINGS" <(echo "$HOOK_JSON") > "$temp_file"
     mv "$temp_file" "$CLAUDE_SETTINGS"
 else
-    # 新建配置
-    cat > "$CLAUDE_SETTINGS" <<EOF
-{
-  "hooks": {
-    "Stop": [
-      {
-        "hooks": [
-          {
-            "type": "command",
-            "command": "$CLAUDE_HOOK_SCRIPT",
-            "timeout": 30
-          }
-        ]
-      }
-    ],
-    "SessionEnd": [
-      {
-        "hooks": [
-          {
-            "type": "command", 
-            "command": "$CLAUDE_HOOK_SCRIPT",
-            "timeout": 30
-          }
-        ]
-      }
-    ]
-  }
-}
-EOF
+    echo "$HOOK_JSON" > "$CLAUDE_SETTINGS"
 fi
 
 echo "✅ 安装完成!"
 echo ""
-echo "现在你可以："
-echo "  1. 使用 dispatch.sh 派发后台任务"
-echo "  2. 任务完成后会自动通知"
+echo "使用方式："
+if [ "$MODE" = "skill" ]; then
+    echo "  $SKILLS_DIR/scripts/dispatch.sh -p '任务描述'"
+else
+    echo "  $ROOT_DIR/scripts/dispatch.sh -p '任务描述'"
+fi
 echo ""
 echo "查看配置: $CLAUDE_SETTINGS"
