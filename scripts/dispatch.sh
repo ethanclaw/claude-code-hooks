@@ -6,8 +6,10 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ROOT_DIR="$(dirname "$SCRIPT_DIR")"
 
-# 加载公共库
+# 加载公共库（保存原来的 SCRIPT_DIR）
+DISPATCH_SCRIPT_DIR="$SCRIPT_DIR"
 source "$SCRIPT_DIR/lib/common.sh"
+SCRIPT_DIR="$DISPATCH_SCRIPT_DIR"
 
 # 默认值
 PROMPT=""
@@ -124,24 +126,19 @@ main() {
     echo "📝 任务: ${PROMPT:0:50}..."
     echo ""
     
-    # 启动 Claude Code（后台运行）
+    # 准备变量
     local output_file="$task_dir/output.txt"
-    local claude_args=(--print)
+    local model_args=""
     
-    # 添加模型参数
-    [ -n "$MODEL" ] && claude_args+=(-m "$MODEL")
+    # 添加权限跳过参数（直接加到命令中）
+    CLAUDE_ARGS="--dangerously-skip-permissions"
+    [ -n "$MODEL" ] && CLAUDE_ARGS="$CLAUDE_ARGS -m $MODEL"
     
-    # 构建 Claude Code 命令
-    # 注意：Claude Code 使用 --dangerously-skip-permissions 绕过权限
-    # 使用 -p 指定 prompt，--print 输出结果
-    cd "$WORKDIR"
-    
-    {
-        echo "Task: $PROMPT"
-        echo "---"
-        # 执行 Claude Code（Mac 没有 timeout，用 perl 实现超时）
-        perl -e 'alarm shift; exec @ARGV' "$TIMEOUT" claude "${claude_args[@]}" -p "$PROMPT" 2>&1 || true
-    } | tee "$output_file" &
+    # 启动 Claude Code（Python 脚本内部已非阻塞）
+    python3 "$SCRIPT_DIR/claude_runner.py" \
+        -p "$PROMPT" \
+        -w "$WORKDIR" \
+        -o "$output_file" &
     
     local pid=$!
     

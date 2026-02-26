@@ -1,17 +1,17 @@
 #!/bin/bash
 # 公共函数库
 
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+LIB_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # scripts/lib -> scripts -> 根目录，需要上两级
-ROOT_DIR="$(dirname "$(dirname "$SCRIPT_DIR")")"
+LIB_ROOT="$(dirname "$(dirname "$LIB_DIR")")"
 
 # 加载模块
-source "$SCRIPT_DIR/config.sh"
-source "$SCRIPT_DIR/telegram.sh"
-source "$SCRIPT_DIR/output.sh"
+source "$LIB_DIR/config.sh"
+source "$LIB_DIR/telegram.sh"
+source "$LIB_DIR/output.sh"
 
 # 初始化配置
-init_config "$ROOT_DIR"
+init_config "$LIB_ROOT"
 
 # 生成任务 ID
 generate_task_id() {
